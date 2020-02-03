@@ -90,10 +90,12 @@ const scrapeGithubUserEmails = async (users) => {
             for (var i=0; i < response.data.length; i++){
                 if(response.data[i].type === 'PushEvent'){
                     const event = response.data[i];
-                    const email = event.payload.commits[0].author.email;
-                    if (email) {
-                        userData.email = email;
-                        break;
+                    if (event.payload && event.payload.commits && event.payload.commits[0].author) {
+                        const email = event.payload.commits[0].author.email;
+                        if (email) {
+                            userData.email = email;
+                            break;
+                        }
                     }
                 }
             }
@@ -110,6 +112,7 @@ const main = async () => {
     const usersEmails = await scrapeGithubUserEmails(users);
     await db.insertUsers(usersEmails);
     console.log(users[users.length - 1]);
+    return process.exit(0);
 };
 
 main();
