@@ -4,10 +4,12 @@ const axios = require('axios');
 const linkParser = require('parse-link-header');
 const fs = require('fs');
 
+const db = require('./db');
 const config = require('./config');
 
 const TOKEN = config.token;
 const START = config.start;
+const OFFSET = config.offset;
 
 const scrapeGithubUsers = async () => {
     const users = [];
@@ -15,7 +17,7 @@ const scrapeGithubUsers = async () => {
     let since = START;
 
     console.log('Scraping all Github users ...');
-    while (rateLimitRemaining) {
+    while (since < START + OFFSET) {
         const response = await axios({
             method: 'GET',
             url: `https://api.github.com/users`,
@@ -34,9 +36,11 @@ const scrapeGithubUsers = async () => {
                 type: user.type
             };
         }));
+        console.log(`Scraped ${users.length} users ...`);
 
         since = response.data[response.data.length - 1].id;
         rateLimitRemaining = parseInt(response.headers['x-ratelimit-remaining'], 10);
+        console.log(`Rate Limit Remaining: ${rateLimitRemaining}, Last ID: ${since}`);
     }
 
     return users;
@@ -64,10 +68,6 @@ const scrapeGithubUserEmails = async (users) => {
                 'Authorization': `token ${TOKEN}`
             }
         });
-
-        if (parseInt(response.headers['x-ratelimit-remaining'], 10) < 10) {
-            console.error('Rate Limit almost exceeded.');
-        }
 
         response.data.name ? userData.name = response.data.name : null;
         response.data.company ? userData.company = response.data.company : null;
@@ -107,13 +107,9 @@ const scrapeGithubUserEmails = async (users) => {
 
 const main = async () => {
     const users = await scrapeGithubUsers();
-    //const usersEmails = await scrapeGithubUserEmails(users);
-
-    fs.writeFile('test.txt', JSON.stringify(users), (e) => {
-        if (e) throw e;
-
-        console.log('Users Saved');
-    });
+    const usersEmails = await scrapeGithubUserEmails(users);
+    await db.insertUsers(usersEmails);
+    console.log(users[users.length - 1]);
 };
 
 main();
