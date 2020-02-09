@@ -11,7 +11,8 @@
   "license": "ISC",
   "dependencies": {
     "axios": "^0.19.2",
-    "parse-link-header": "^1.0.1",
-    "pg": "^7.18.1"
+    "moment": "^2.24.0",
+    "pg": "^7.18.1",
+    "underscore": "^1.9.2"
   }
 }

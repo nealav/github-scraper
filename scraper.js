@@ -1,13 +1,17 @@
 'use strict';
 
 const axios = require('axios');
-const linkParser = require('parse-link-header');
 const fs = require('fs');
+const _ = require('underscore');
+const moment = require('moment');
 
 const db = require('./db');
 const config = require('./config');
 
 const TOKEN = config.token;
+
+/* REST API Implementation
+
 const START = config.start;
 const OFFSET = config.offset;
 
@@ -107,11 +111,97 @@ const scrapeGithubUserEmails = async (users) => {
     return userEmails;
 };
 
+*/
+
+const scrapeGithubUsersGraphQLAPI = async () => {
+    let rateLimitRemaining = 2;
+    let lastChecked = JSON.parse(fs.readFileSync('lastChecked', { encoding: 'utf8' }));
+    let cursor = lastChecked.cursor;
+    let date = moment(lastChecked.date);
+
+    console.log('Scraping all Github users with GraphQL API ...');
+
+    while (rateLimitRemaining > 1) {
+        const payload = {
+            query: `{
+                search(query: "created:${date.format('YYYY-MM-DD')} sort:joined-asc", type: USER, first: 100${ cursor ? `, after: "${cursor}"` : ''}) {
+                    userCount
+                    pageInfo {
+                        hasNextPage
+                        endCursor
+                    }
+                    edges {
+                        node {
+                            ... on User {
+                                name
+                                login
+                                databaseId
+                                email
+                                bio
+                                isHireable
+                                websiteUrl
+                                company
+                                location
+                            }
+                        }
+                    }
+                }
+            }`
+        };
+
+        const response = await axios({
+            method: 'POST',
+            url: `https://api.github.com/graphql`,
+            headers: {
+                'Authorization': `token ${TOKEN}`
+            },
+            data: payload
+        })
+
+        let users = [];
+        users.push(...response.data.data.search.edges.map((user) => {
+            return {
+                ...user.node
+            };
+        }));
+        users = users.filter(user => !_.isEmpty(user));
+        console.log(`Scraped ${response.data.data.search.edges.length} users ...`);
+        console.log('Inserting users into PostgresDB ...')
+        await db.insertUsers(users);
+
+        const lastUserId = users[users.length - 1] && users[users.length - 1].databaseId;
+
+        if (response.data.data.search.pageInfo.hasNextPage === false) {
+            const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount, lastUserId }) + '\n';
+            fs.appendFile('scraper.log', log, function (err) {
+                if (err) throw err;
+                console.log(log);
+            });
+            cursor = '';
+            date.add(1, 'days');
+            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM_DD'), cursor }));
+        } else {
+            cursor = response.data.data.search.pageInfo.endCursor;
+        }
+
+        rateLimitRemaining = parseInt(response.headers['x-ratelimit-remaining'], 10);    
+        console.log(`Rate Limit Remaining: ${rateLimitRemaining}, Cursor: ${cursor}, Last ID: ${lastUserId}`);
+    }
+};
+
 const main = async () => {
-    const users = await scrapeGithubUsers();
-    const usersEmails = await scrapeGithubUserEmails(users);
-    await db.insertUsers(usersEmails);
-    console.log(users[users.length - 1]);
+    // REST API
+    // const users = await scrapeGithubUsers();
+    // const usersEmails = await scrapeGithubUserEmails(users);
+    // await db.insertUsers(usersEmails);
+
+    // GraphQL API
+    try {
+        const users = await scrapeGithubUsersGraphQLAPI();
+    } catch (e) {
+        console.error(e);
+        return process.exit(1);
+    }
     return process.exit(0);
 };
 

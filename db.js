@@ -21,9 +21,9 @@ DROP TABLE users;
 
 const createUsersTableQuery = `
 CREATE TABLE users(
-    id TEXT PRIMARY KEY,
+    id BIGINT PRIMARY KEY,
     login TEXT,
-    type TEXT,
+    isHireable BOOLEAN,
     email TEXT,
     name TEXT,
     company TEXT,
@@ -35,22 +35,22 @@ CREATE TABLE users(
 
 const insertUsers = async (users) => {
     const insertUser = `
-        INSERT INTO users (id, login, type, email, name, company, blog, location, bio) 
+        INSERT INTO users (id, login, "isHireable", email, name, company, "websiteUrl", location, bio) 
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         ON CONFLICT (id)
         DO NOTHING;
     `;
-    const client = await pool.connect();
+    //const client = await pool.connect();
 
     for (let user of users) {
-        const result = await client.query(insertUser, [
-            user.id, 
+        const result = await pool.query(insertUser, [
+            user.databaseId, 
             user.login, 
-            user.type,
+            user.isHireable,
             user.email,
             user.name,
             user.company,
-            user.blog,
+            user.websiteUrl,
             user.location,
             user.bio
         ]);
@@ -59,7 +59,7 @@ const insertUsers = async (users) => {
 
 const selectUsers = async () => {
     const selectUsers = `
-        SELECT MAX(id) FROM users;
+        SELECT * FROM users;
     `;
 
     const client = await pool.connect();
@@ -68,9 +68,9 @@ const selectUsers = async () => {
 };
 
 // const main = async () => {
-
+//     await selectUsers();
 // };
-//main();
+// main();
 
 module.exports = {
     insertUsers,

@@ -8,6 +8,12 @@ Scraping the emails is a lot more annoying. You can only do 5000x24 = 120,000 pe
 
 Need to explore running in a Docker container on a cron job. No idea what I would do with the scraped emails lol. Meta-analysis on open devs? Tool to find most active developers around you for projects?
 
+## GHTorrent
+
+http://ghtorrent.org/downloads.html
+
+This is a dump of github commits needed. Using the latest mysql dump and importing into Postgres is perfect.
+
 ## config.js
 
 Make a config.js file:
@@ -49,25 +55,27 @@ https://developer.github.com/v4/explorer/
     remaining
     resetAt
   }
-  search(query: "repos:>=0", type: USER, first: 100, after: "Y3Vyc29yOjEwMg==") {
-    userCount
-    pageInfo {
-      endCursor
-      startCursor
-    }
-    edges {
-      node {
-        ... on User {
-          name
-          login
-          databaseId
-          email
-          bio
-          company
-          location
-        }
+  search(query: "created:2007-10-20 sort:joined-asc", type: USER, first: 100, after: "Y3Vyc29yOjEwMg==") {
+      userCount
+      pageInfo {
+          hasNextPage
+          endCursor
       }
-    }
+      edges {
+          node {
+              ... on User {
+                  name
+                  login
+                  databaseId
+                  email
+                  bio
+                  isHireable
+                  websiteUrl
+                  company
+                  location
+              }
+          }
+      }
   }
 }
 ```
