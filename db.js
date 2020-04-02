@@ -42,7 +42,7 @@ const insertUsers = async (users, date) => {
 
     const result = pool.query(insertUsersQuery, (err, res) => {
         if (err) {
-            fs.appendFile('error.log', `ERROR: ERROR FOR ${users.length} USERS ON ${date} \n`, function (err) {
+            fs.appendFile('./error.log', `ERROR: ERROR FOR ${users.length} USERS ON ${date} \n`, function (err) {
                 if (err) throw err;
             });
             console.error(err.stack);

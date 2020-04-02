@@ -174,11 +174,11 @@ const scrape24HoursGithubUsers = async (date) => {
         const lastUserId = users[users.length - 1] && users[users.length - 1].databaseId;
         if (response.data.data.search.pageInfo.hasNextPage === false) {
             const log = JSON.stringify({ date: date.format('YYYY-MM-DD') + hour_string, userCount: response.data.data.search.userCount, lastUserId }) + '\n';
-            fs.appendFile('scraper.log', log, function (err) {
+            fs.appendFile('./scraper.log', log, function (err) {
                 if (err) throw err;
                 console.log(log);
             });
-            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
+            fs.writeFileSync('./lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
         } else {
             cursor = response.data.data.search.pageInfo.endCursor;
         }
@@ -197,9 +197,9 @@ const scrapeGithubUsersGraphQLAPI = async () => {
     let rateLimitRemaining = 2;
 
     if(!fs.existsSync('./lastChecked')) {
-        fs.writeFileSync('lastChecked', JSON.stringify({ date: '2007-10-20', cursor: ''}));
+        fs.writeFileSync('./lastChecked', JSON.stringify({ date: '2007-10-20', cursor: ''}));
     }
-    let lastChecked = JSON.parse(fs.readFileSync('lastChecked', { encoding: 'utf8' }));
+    let lastChecked = JSON.parse(fs.readFileSync('./lastChecked', { encoding: 'utf8' }));
     let cursor = lastChecked.cursor;
     let date = moment(lastChecked.date);
 
@@ -259,23 +259,23 @@ const scrapeGithubUsersGraphQLAPI = async () => {
         const lastUserId = users[users.length - 1] && users[users.length - 1].databaseId;
         if (response.data.data.search.pageInfo.hasNextPage === false && response.data.data.search.userCount <= 1000) {
             const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount, lastUserId }) + '\n';
-            fs.appendFile('scraper.log', log, function (err) {
+            fs.appendFile('./scraper.log', log, function (err) {
                 if (err) throw err;
                 console.log(log);
             });
             cursor = '';
             date.add(1, 'days');
-            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
+            fs.writeFileSync('./lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
         } else if (response.data.data.search.userCount > 1000) {
             const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount }) + '\n';
-            fs.appendFile('scraper.log', log, function (err) {
+            fs.appendFile('./scraper.log', log, function (err) {
                 if (err) throw err;
                 console.log(log);
             });
             await scrape24HoursGithubUsers(date);
             cursor = '';
             date.add(1, 'days');
-            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
+            fs.writeFileSync('./lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
         } else {
             cursor = response.data.data.search.pageInfo.endCursor;
         }
