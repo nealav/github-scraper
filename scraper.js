@@ -7,7 +7,6 @@ const moment = require('moment');
 
 const db = require('./db');
 const config = require('./config');
-
 const TOKEN = config.token;
 
 /* REST API Implementation
@@ -113,18 +112,20 @@ const scrapeGithubUserEmails = async (users) => {
 
 */
 
-const scrapeGithubUsersGraphQLAPI = async () => {
-    let rateLimitRemaining = 2;
-    let lastChecked = JSON.parse(fs.readFileSync('lastChecked', { encoding: 'utf8' }));
-    let cursor = lastChecked.cursor;
-    let date = moment(lastChecked.date);
 
-    console.log('Scraping all Github users with GraphQL API ...');
+const scrape24HoursGithubUsers = async (date) => {
 
-    while (rateLimitRemaining > 1) {
+    console.log(`STARTING: Scraping all 24 hours of users on ${date.format('YYYY-MM-DD')}`);
+    let cursor = '';
+    let hour = 0;
+
+    while (hour < 24) {
+        let hour_string = hour < 10 ? `T0${hour}` : 'T${hour}'
+        console.log(`STARTING: T${hour_string}`);
+
         const payload = {
             query: `{
-                search(query: "created:${date.format('YYYY-MM-DD')} sort:joined-asc", type: USER, first: 100${ cursor ? `, after: "${cursor}"` : ''}) {
+                search(query: "created:${date.format('YYYY-MM-DD')}${hour_string}} sort:joined-asc", type: USER, first: 100${ cursor ? `, after: "${cursor}"` : ''}) {
                     userCount
                     pageInfo {
                         hasNextPage
@@ -142,12 +143,13 @@ const scrapeGithubUsersGraphQLAPI = async () => {
                                 websiteUrl
                                 company
                                 location
+                                createdAt
                             }
                         }
                     }
                 }
             }`
-        };
+        }
 
         const response = await axios({
             method: 'POST',
@@ -170,8 +172,95 @@ const scrapeGithubUsersGraphQLAPI = async () => {
         await db.insertUsers(users);
 
         const lastUserId = users[users.length - 1] && users[users.length - 1].databaseId;
-
         if (response.data.data.search.pageInfo.hasNextPage === false) {
+            const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount, lastUserId }) + '\n';
+            fs.appendFile('scraper.log', log, function (err) {
+                if (err) throw err;
+                console.log(log);
+            });
+            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM_DD'), cursor }));
+        } else {
+            cursor = response.data.data.search.pageInfo.endCursor;
+        }
+
+        console.log(`Rate Limit Remaining: ${parseInt(response.headers['x-ratelimit-remaining'], 10)}, 
+                        Cursor: ${cursor}, 
+                        Last ID: ${lastUserId}
+                    `);
+
+        console.log(`FINISHED: T${hour_string}`);
+        hour++;
+    }
+
+    console.log(`FINISHED: Scraping all 24 hours of users on ${date.format('YYYY-MM-DD')}`)
+    return;
+}
+
+const scrapeGithubUsersGraphQLAPI = async () => {
+    let rateLimitRemaining = 2;
+
+    if(!fs.existsSync('./lastChecked')) {
+        fs.writeFileSync('lastChecked', JSON.stringify({ date: '2007-10-20', cursor: ''}));
+    }
+    let lastChecked = JSON.parse(fs.readFileSync('lastChecked', { encoding: 'utf8' }));
+    let cursor = lastChecked.cursor;
+    let date = moment(lastChecked.date);
+
+    console.log('START: USER SCRAPING');
+
+    while (rateLimitRemaining > 1) {
+        const payload = {
+            query: `{
+                search(query: "created:${date.format('YYYY-MM-DD')} sort:joined-asc", type: USER, first: 100${ cursor ? `, after: "${cursor}"` : ''}) {
+                    userCount
+                    pageInfo {
+                        hasNextPage
+                        endCursor
+                    }
+                    edges {
+                        node {
+                            ... on User {
+                                name
+                                login
+                                databaseId
+                                email
+                                bio
+                                isHireable
+                                websiteUrl
+                                company
+                                location
+                                createdAt
+                            }
+                        }
+                    }
+                }
+            }`
+        };
+
+        //Hit GraphQL API
+        const response = await axios({
+            method: 'POST',
+            url: `https://api.github.com/graphql`,
+            headers: {
+                'Authorization': `token ${TOKEN}`
+            },
+            data: payload
+        })
+
+        //Insert users into Postgres DB
+        let users = [];
+        users.push(...response.data.data.search.edges.map((user) => {
+            return {
+                ...user.node
+            };
+        }));
+        users = users.filter(user => !_.isEmpty(user));
+        console.log(`SCRAPED ${response.data.data.search.edges.length} USERS ...`);
+        await db.insertUsers(users, date.format('YYYY-MM-DD'));
+
+        //Increment Cursor Page or Day By 1
+        const lastUserId = users[users.length - 1] && users[users.length - 1].databaseId;
+        if (response.data.data.search.pageInfo.hasNextPage === false && response.data.data.search.userCount <= 1000) {
             const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount, lastUserId }) + '\n';
             fs.appendFile('scraper.log', log, function (err) {
                 if (err) throw err;
@@ -179,13 +268,16 @@ const scrapeGithubUsersGraphQLAPI = async () => {
             });
             cursor = '';
             date.add(1, 'days');
-            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM_DD'), cursor }));
+            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
+        } else if (response.data.data.search.userCount > 1000) {
+            await scrape24HoursGithubUsers(date);
         } else {
             cursor = response.data.data.search.pageInfo.endCursor;
         }
 
+        //Decrement Rate Limit
         rateLimitRemaining = parseInt(response.headers['x-ratelimit-remaining'], 10);    
-        console.log(`Rate Limit Remaining: ${rateLimitRemaining}, Cursor: ${cursor}, Last ID: ${lastUserId}`);
+        console.log(`Rate Limit Remaining: ${rateLimitRemaining},\nCursor: ${cursor},\nLast ID: ${lastUserId}`);
     }
 };
 

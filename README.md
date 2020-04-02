@@ -8,6 +8,10 @@ Scraping the emails is a lot more annoying. You can only do 5000x24 = 120,000 pe
 
 Need to explore running in a Docker container on a cron job. No idea what I would do with the scraped emails lol. Meta-analysis on open devs? Tool to find most active developers around you for projects?
 
+## Architecture
+
+I spun up a Postgres Cloud SQL Managed DB in GCP. Sticking all the data in there. The script will run in a VM or a container in a cluster.
+
 ## GHTorrent
 
 http://ghtorrent.org/downloads.html
@@ -21,11 +25,10 @@ Make a config.js file:
 ```
 module.exports = {
     token: '',
+    host: '',
     user: '',
     database: '',
     password: '',
-    start: 0,
-    offset: 100
 };
 ```
 
@@ -42,8 +45,6 @@ Still need to look into this.
 
 
 ## GraphQL API v4
-
-Considered using this but the way to get the info wasn't straight forward enough. I like simple so a few extra REST calls doesn't hurt.
 
 https://developer.github.com/v4/explorer/
 
