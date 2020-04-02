@@ -22,6 +22,10 @@ var pool = new pg.Pool(dbConfig);
 
 const insertUsers = async (users, date) => {
 
+    if (users.length === 0) {
+        return;
+    }
+
     console.log(`START: INSERT USERS`)
     let values = [];
     for (let user of users) {

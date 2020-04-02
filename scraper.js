@@ -115,17 +115,18 @@ const scrapeGithubUserEmails = async (users) => {
 
 const scrape24HoursGithubUsers = async (date) => {
 
+    let rateLimitRemaining = 2;
     console.log(`STARTING: Scraping all 24 hours of users on ${date.format('YYYY-MM-DD')}`);
     let cursor = '';
     let hour = 0;
 
-    while (hour < 24) {
-        let hour_string = hour < 10 ? `T0${hour}` : 'T${hour}'
-        console.log(`STARTING: T${hour_string}`);
+    while (hour <= 24 && rateLimitRemaining > 1) {
+        let hour_string = hour < 10 ? `T0${hour}` : `T${hour}`
+        console.log(`STARTING: ${hour_string}`);
 
         const payload = {
             query: `{
-                search(query: "created:${date.format('YYYY-MM-DD')}${hour_string}} sort:joined-asc", type: USER, first: 100${ cursor ? `, after: "${cursor}"` : ''}) {
+                search(query: "created:${date.format('YYYY-MM-DD')}${hour_string} sort:joined-asc", type: USER, first: 100${ cursor ? `, after: "${cursor}"` : ''}) {
                     userCount
                     pageInfo {
                         hasNextPage
@@ -167,28 +168,24 @@ const scrape24HoursGithubUsers = async (date) => {
             };
         }));
         users = users.filter(user => !_.isEmpty(user));
-        console.log(`Scraped ${response.data.data.search.edges.length} users ...`);
-        console.log('Inserting users into PostgresDB ...')
-        await db.insertUsers(users);
+        console.log(`SCRAPED ${response.data.data.search.edges.length} USERS ...`);
+        await db.insertUsers(users, date.format('YYYY-MM-DD') + hour_string);
 
         const lastUserId = users[users.length - 1] && users[users.length - 1].databaseId;
         if (response.data.data.search.pageInfo.hasNextPage === false) {
-            const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount, lastUserId }) + '\n';
+            const log = JSON.stringify({ date: date.format('YYYY-MM-DD') + hour_string, userCount: response.data.data.search.userCount, lastUserId }) + '\n';
             fs.appendFile('scraper.log', log, function (err) {
                 if (err) throw err;
                 console.log(log);
             });
-            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM_DD'), cursor }));
+            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
         } else {
             cursor = response.data.data.search.pageInfo.endCursor;
         }
 
-        console.log(`Rate Limit Remaining: ${parseInt(response.headers['x-ratelimit-remaining'], 10)}, 
-                        Cursor: ${cursor}, 
-                        Last ID: ${lastUserId}
-                    `);
-
-        console.log(`FINISHED: T${hour_string}`);
+        rateLimitRemaining = parseInt(response.headers['x-ratelimit-remaining'], 10);    
+        console.log(`Rate Limit Remaining: ${rateLimitRemaining},\nCursor: ${cursor},\nLast ID: ${lastUserId}`);
+        console.log(`FINISHED: ${hour_string}`);
         hour++;
     }
 
@@ -270,7 +267,15 @@ const scrapeGithubUsersGraphQLAPI = async () => {
             date.add(1, 'days');
             fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
         } else if (response.data.data.search.userCount > 1000) {
+            const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount }) + '\n';
+            fs.appendFile('scraper.log', log, function (err) {
+                if (err) throw err;
+                console.log(log);
+            });
             await scrape24HoursGithubUsers(date);
+            cursor = '';
+            date.add(1, 'days');
+            fs.writeFileSync('lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
         } else {
             cursor = response.data.data.search.pageInfo.endCursor;
         }
