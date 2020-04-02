@@ -179,6 +179,8 @@ const scrape24HoursGithubUsers = async (date) => {
                 console.log(log);
             });
             fs.writeFileSync('./lastChecked', JSON.stringify({ date: date.format('YYYY-MM-DD'), cursor }));
+            hour++;
+            cursor='';
         } else {
             cursor = response.data.data.search.pageInfo.endCursor;
         }
@@ -186,7 +188,6 @@ const scrape24HoursGithubUsers = async (date) => {
         rateLimitRemaining = parseInt(response.headers['x-ratelimit-remaining'], 10);    
         console.log(`Rate Limit Remaining: ${rateLimitRemaining},\nCursor: ${cursor},\nLast ID: ${lastUserId}`);
         console.log(`FINISHED: ${hour_string}`);
-        hour++;
     }
 
     console.log(`FINISHED: Scraping all 24 hours of users on ${date.format('YYYY-MM-DD')}`)
