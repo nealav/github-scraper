@@ -1,4 +1,4 @@
-# github-email-scraper
+# github-scraper
 
 Uses GitHub's API to get public emails in Push Events or even by the user's profile. Most people don't hide their emails on GitHub for whatever reason. Implications could be connecting code to job profiles, talent sourcing w/ automated emails, DoSing websites, finding devs at companies, finding dev in areas of interest etc.
 
