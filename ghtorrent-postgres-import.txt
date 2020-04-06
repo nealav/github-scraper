@@ -1,0 +1,7 @@
+\copy users FROM '/media/nealav/Storage/Downloads/GHTorrent/mysql-2019-06-01/users.csv' WITH (FORMAT 'csv', QUOTE E'\"', ESCAPE '\', NULL '\N');
+\copy projects FROM '/media/nealav/Storage/Downloads/GHTorrent/mysql-2019-06-01/projects.csv' WITH (FORMAT 'csv', QUOTE E'\"', ESCAPE '\', NULL '\N');
+\copy pull_request_comments FROM '/media/nealav/Storage/Downloads/GHTorrent/mysql-2019-06-01/pull_request_comments.csv' WITH (FORMAT 'csv', QUOTE E'\"', ESCAPE '\', NULL '\N');
+\copy project_members FROM '/media/nealav/Storage/Downloads/GHTorrent/mysql-2019-06-01/project_members.csv' WITH (FORMAT 'csv', QUOTE E'\"', ESCAPE '\', NULL '\N');
+\copy commit_comments FROM '/media/nealav/Storage/Downloads/GHTorrent/mysql-2019-06-01/commit_comments.csv' WITH (FORMAT 'csv', QUOTE E'\"', ESCAPE '\', NULL '\N');
+
+

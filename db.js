@@ -56,6 +56,26 @@ const insertUsers = async (users, date) => {
     return;
 };
 
+const insertDates = async (date, count) => {
+    const insertDatesQuery = `
+        INSERT INTO users_per_day (date, count) 
+        VALUES ('${date}', ${count})
+        ON CONFLICT(date)
+        DO NOTHING
+    `;
+    const result = pool.query(insertDatesQuery, (err, res) => {
+        if (err) {
+            fs.appendFile('./error.log', `ERROR: ERROR ON ${date} \n`, function (err) {
+                if (err) throw err;
+            });
+            console.error(err.stack);
+        } else {
+            console.log(`SUCCESS: ON ${date}`);
+        }
+    });
+}
+
 module.exports = {
-    insertUsers
+    insertUsers,
+    insertDates,
 };

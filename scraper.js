@@ -287,6 +287,43 @@ const scrapeGithubUsersGraphQLAPI = async () => {
     }
 };
 
+const scrapeUserCountsperDayGraphQLAPI = async () => {
+    let rateLimitRemaining = 2;
+
+    let date = moment('2017-02-11');
+
+    while (rateLimitRemaining > 1) {
+        const payload = {
+            query: `{
+                search(query: "created:${date.format('YYYY-MM-DD')} sort:joined-asc", type: USER, first: 1) {
+                    userCount
+                }
+            }`
+        };
+
+        //Hit GraphQL API
+        const response = await axios({
+            method: 'POST',
+            url: `https://api.github.com/graphql`,
+            headers: {
+                'Authorization': `token ${TOKEN}`
+            },
+            data: payload
+        })
+
+        await db.insertDates(date.format('YYYY-MM-DD'), response.data.data.search.userCount);
+
+        const log = JSON.stringify({ date: date.format('YYYY-MM-DD'), userCount: response.data.data.search.userCount}) + '\n';
+        fs.appendFile('./date.log', log, function (err) {
+            if (err) throw err;
+            console.log(log);
+        });
+        date.add(1, 'days');
+        rateLimitRemaining = parseInt(response.headers['x-ratelimit-remaining'], 10);    
+        console.log(`Rate Limit Remaining: ${rateLimitRemaining}`);
+    }
+};
+
 const main = async () => {
     // REST API
     // const users = await scrapeGithubUsers();
@@ -295,7 +332,7 @@ const main = async () => {
 
     // GraphQL API
     try {
-        const users = await scrapeGithubUsersGraphQLAPI();
+        await scrapeUserCountsperDayGraphQLAPI();
     } catch (e) {
         console.error(e);
         return process.exit(1);
